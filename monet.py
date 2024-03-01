@@ -3,10 +3,10 @@
 """
 Monitoring Network
 """
-import asyncio
+import logging
 from argparse import ArgumentParser
 
-from core.network import Network
+from core.commands import Cmd
 
 parser = ArgumentParser(
     description='Network monitor tool.',
@@ -15,23 +15,25 @@ parser.add_argument(
     'command',
     type=str,
     action='store',
-    help='Monitora no formato escolhido. [ default | interfaces | processes ]',
+    help='Comando do serviço a ser executado. [ daemon | migrate | run ]',
 )
 
 if __name__ == '__main__':
+    _log = logging.getLevelName(__name__)
     args = parser.parse_args()
-    _nt = Network()
 
     try:
         match args.command:
-            case 'default':
-                asyncio.run(_nt.speed())
-            case 'interfaces':
-                asyncio.run(_nt.interfaces())
-            case 'processes':
-                asyncio.run(_nt.processes())
+            case 'run':
+                Cmd.run()
+            case 'migrate':
+                Cmd.migrate()
+            case 'daemon':
+                Cmd.daemons()
             case _:
                 parser.print_help()
 
     except KeyboardInterrupt:
-        print('Bye ...')
+        _log.info('Bye ...')
+    except Exception as e:
+        _log.error(e.args)

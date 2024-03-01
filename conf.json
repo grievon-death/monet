@@ -1,4 +1,11 @@
 {
     "refreshTime": 1,
-    "logLevel": "debug"
+    "logLevel": "debug",
+    "mongoHost": "mongodb://127.0.0.1",
+    "mongoPort": 27017,
+    "mongoName": "monet",
+    "mongoExpireDataSeconds": 3600,
+    "mongoResponseLimit": 100,
+    "debug": true,
+    "appSecretKey": "serw#%@rqdÀWRPA`SDosd123@!13qweqsd-as=-%¨&ÏYJ"
 }

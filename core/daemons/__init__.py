@@ -1,5 +1,5 @@
+import asyncio
 import logging
-import os
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -9,11 +9,10 @@ from typing import Any, Dict
 import psutil
 import pandas as pd
 import scapy.all as sp
-from halo import Halo
 
-from settings.config import Config
+from core.models.network import Network as NetworkModel
+from settings.config import CONF
 
-CONF = Config()
 _log = logging.getLogger(__name__)
 _log.setLevel(CONF.log_level)
 
@@ -27,13 +26,8 @@ class Network:
         self._pid2trfc = defaultdict(lambda: [0, 0])  # Trafego
         self._df = None  # Dataframe global
         self._is_running = True
+        self._model = NetworkModel()
 
-    def __clear(self) -> None:
-        """
-        Limpa a tela.
-        """
-        os.system('cls') if 'nt' in os.name else os.system('clear')
-    
     def __get_size(self, _bytes: bytes, _size: int=1024) -> Dict:
         """
         Retorna o tamanho dos bytes num formato legal.
@@ -145,53 +139,26 @@ class Network:
             self.__print_pid2trafic()
             time.sleep(CONF.refresh_time)
 
-    async def speed(self) -> None:
+    async def __interfaces(self) -> None:
         """
-        Mostra o status de rede da interface padrão.
+        Processa o status de rede das interfaces disponíveis.
         """
-        _io = psutil.net_io_counters()
-        _snt, _recv = _io.bytes_sent, _io.bytes_recv
+        io = psutil.net_io_counters(pernic=True)
 
-        while True:
-            io = psutil.net_io_counters()
-            uspeed, dspeed = io.bytes_sent, io.bytes_recv - _recv
-            _message = f'| Upload: {self.__get_size(io.bytes_sent)} | '\
-                f'Download: {self.__get_size(io.bytes_recv)} | '\
-                f'Upload speed: {self.__get_size(uspeed/CONF.refresh_time)}/s | '\
-                f'Download speed: {self.__get_size(dspeed/CONF.refresh_time)}/s |'
-            self.__clear()
+        for _if, _if_io in self._io.items():
+            uspeed, dspeed = io[_if].bytes_sent - _if_io.bytes_sent, io[_if].bytes_recv - _if_io.bytes_recv
+            _data = {
+                'interface': _if,
+                'download': self.__get_size(io[_if].bytes_recv),
+                'updaload': self.__get_size(io[_if].bytes_sent),
+                'upload_speed': f'{self.__get_size(uspeed / CONF.refresh_time)}/s',
+                'download_speed': f'{self.__get_size(dspeed / CONF.refresh_time)}/s',
+                'timestamp': int(datetime.now().timestamp())
+            }
+            await self._model.set_interfaces(_data)
 
-            with Halo(text=_message, spinner='dots'):
-                _snt, _recv = io.bytes_sent, io.bytes_recv
-                time.sleep(CONF.refresh_time)
-
-    async def interfaces(self) -> None:
-        """
-        Mostra o status de rede das interfaces disponíveis.
-        """
-
-        while True:
-            time.sleep(CONF.refresh_time)
-            io = psutil.net_io_counters(pernic=True)
-        
-            _data = []
-
-            for _if, _if_io in self._io.items():
-                uspeed, dspeed = io[_if].bytes_sent - _if_io.bytes_sent, io[_if].bytes_recv - _if_io.bytes_recv
-                _data.append({
-                    'Interface': _if,
-                    'Download': self.__get_size(io[_if].bytes_recv),
-                    'Upload': self.__get_size(io[_if].bytes_sent),
-                    'Upload speed': f'{self.__get_size(uspeed / CONF.refresh_time)}/s',
-                    'Download speed': f'{self.__get_size(dspeed / CONF.refresh_time)}/s'
-                })
-        
-            self._io = io
-            _dataset = pd.DataFrame(_data)
-            _dataset.sort_values('Download', inplace=True, ascending=False)
-            self.__clear()
-            print(_dataset.to_string(index=False))
-            time.sleep(CONF.refresh_time)
+        self._io = io
+        time.sleep(CONF.refresh_time)
 
     async def processes(self) -> None:
         """
@@ -210,3 +177,10 @@ class Network:
 
         for _t in _threads:
             _t.join()
+
+    async def run(self) -> None:
+        """
+        Executa os daemons de Network.
+        """
+        while True:
+            await self.__interfaces()
