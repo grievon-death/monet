@@ -19,7 +19,7 @@ parser.add_argument(
 )
 
 if __name__ == '__main__':
-    _log = logging.getLevelName(__name__)
+    _log = logging.getLogger(__name__)
     args = parser.parse_args()
 
     try:
