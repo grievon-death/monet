@@ -68,15 +68,15 @@ class Network:
             return
 
         try:
-            _response = await self._db.connection.insert_many(connections)
+            _response = await self._db.process.insert_many(connections)
         except DuplicateKeyError:
-            _log.warning('Duplicated connections: %s', str(connections))
+            _log.debug('Duplicated connections: %s', str(connections))
         except Exception as e:
             _log.error(e.args)
         else:
             _log.debug('Insert connection %s', _response.inserted_ids)
 
-    async def get_connections(self, query: Dict={}, fields: Dict={}) -> List[Dict]:
+    async def get_processes(self, query: Dict={}, fields: Dict={}) -> List[Dict]:
         """
         Recupera as conexões salvas no banco.
         """
@@ -84,7 +84,7 @@ class Network:
             _log.error('Invalid query content.')
             return
 
-        _response = await self._db.connection.find(query, fields)\
+        _response = await self._db.process.find(query, fields)\
             .to_list(CONF.db_response_limit)
 
         if not isinstance(_response, list):
@@ -115,15 +115,7 @@ class Network:
             _log.error(e.args)
 
         try:
-            _db.process.create_index({
-                'expireAfterSeconds': CONF.db_expire_time
-            })
-            _log.info(_m.format(collection='process'))
-        except Exception as e:
-            _log.error(e.args)
-
-        try:
-            _db.connection.create_indexes([
+            _db.process.create_indexes([
                 IndexModel([
                     ('expireAfterSeconds', CONF.db_expire_time)
                 ]),
@@ -133,6 +125,6 @@ class Network:
                     ('pid', DESCENDING)
                 ], unique=True)
             ])
-            _log.info(_m.format(collection='connection'))
+            _log.info(_m.format(collection='process'))
         except Exception as e:
             _log.error(e.args)

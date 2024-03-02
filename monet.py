@@ -15,7 +15,7 @@ parser.add_argument(
     'command',
     type=str,
     action='store',
-    help='Comando do serviço a ser executado. [ daemon | migrate | run ]',
+    help='Comando do serviço a ser executado. [ daemons | migrate | run ]',
 )
 
 if __name__ == '__main__':
@@ -28,8 +28,10 @@ if __name__ == '__main__':
                 Cmd.run()
             case 'migrate':
                 Cmd.migrate()
-            case 'daemon':
+            case 'daemons':
                 Cmd.daemons()
+            case 'test':
+                Cmd.test()
             case _:
                 parser.print_help()
 

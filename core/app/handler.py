@@ -10,7 +10,7 @@ _log = logging.getLogger(__name__)
 
 class Interfaces(RequestHandler):
     """
-    Handler da rota 
+    Handler da rota de interfaces.
     """
     _model = NetworkModel()
 
@@ -23,3 +23,15 @@ class Interfaces(RequestHandler):
             'data': _ifaces
         })
 
+
+class Connections(RequestHandler):
+    """
+    Handler da rota de conexões.
+    """
+    _model = NetworkModel()
+
+    async def get(self) -> Dict:
+        _connections = await self._model.get_processes()
+        self.finish({
+            'data': _connections
+        })

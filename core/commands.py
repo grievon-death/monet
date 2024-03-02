@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from multiprocessing import Process
 
 from core.app import App
 from core.models.network import Network as NetworkModel
@@ -31,6 +32,21 @@ class Cmd:
     def daemons() -> None:
         _net = Network()
         try:
-            asyncio.run(_net.run())
+            _daemons = [
+                Process(target=_net.interfaces),
+                Process(target=_net.connections)
+            ]
+
+            for _d in _daemons:
+                _d.start()
+
+            for _d in _daemons:
+                _d.join()
+
         except Exception as e:
             _log.error(e.args)
+
+    @staticmethod
+    def test() -> None:
+        _net = Network()
+        _net.processes()

@@ -2,14 +2,15 @@ from tornado.web import Application
 from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
 
-from core.app.handler import Interfaces
+from core.app import handler
 from settings.config import CONF
 
 
 class App(Application):
     def __init__(self) -> None:
         handlers = [
-            (r'/interfaces/', Interfaces),
+            (r'/api/interfaces/', handler.Interfaces),
+            (r'/api/connections/', handler.Connections),
         ]
         settings = dict(
             cookie_secret=CONF.secret_key,
