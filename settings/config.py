@@ -16,7 +16,7 @@ class Config:
         __content__ = self.__conf_load__()
 
         try:
-            self.refresh_time = __content__['refreshTime']
+            self.refresh_time = __content__.get('refreshTime', 1)
             self.log_level = __content__.get('logLevel', 'info').upper()
             self.db_host = __content__.get('mongoHost', 'mongodb://127.0.0.1')
             self.db_port = __content__.get('mongoPort', 27017)
