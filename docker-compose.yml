@@ -14,8 +14,6 @@ services:
       - monet
     volumes:
       - mongo.vol:/var/data/mongo
-    ports:
-      - 27017
 
   monet.daemons:
     image: monet:devel
