@@ -3,4 +3,4 @@ daemons:
 	python3 monet.py test
 
 rest:
-	python3 monet.py run
+	python3 monet.py rest

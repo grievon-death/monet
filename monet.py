@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     try:
         match args.command:
-            case 'run':
+            case 'rest':
                 Cmd.run()
             case 'migrate':
                 Cmd.migrate()

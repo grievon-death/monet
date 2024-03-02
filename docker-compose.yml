@@ -18,8 +18,6 @@ services:
       - 27017
 
   monet.daemons:
-    build:
-      context: "."
     image: monet:devel
     container_name: monet.daemons
     networks:
@@ -29,8 +27,6 @@ services:
     command: make daemons
 
   monet.rest:
-    build:
-      context: "."
     image: monet:devel
     container_name: monet.rest
     networks:
