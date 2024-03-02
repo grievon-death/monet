@@ -1,7 +1,8 @@
 import logging
-from typing import Any, Dict, List
+from typing import Dict, List
 
-from pymongo import DESCENDING, MongoClient
+from pymongo import ASCENDING, DESCENDING, IndexModel, MongoClient
+from pymongo.errors import DuplicateKeyError
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from settings.config import CONF
@@ -18,20 +19,20 @@ class Network:
         port=CONF.db_port
     )[CONF.db_name]
 
-    async def set_interfaces(self, interface: Dict) -> None:
+    async def set_interfaces(self, interfaces: List[Dict]) -> None:
         """
         Insere a lista de interfaces no banco de dados.
         """
-        if not isinstance(interface, dict):
+        if not isinstance(interfaces, (list, tuple)):
             _log.error('Invalid interface content.')
             return
 
         try:
-            _result = await self._db.interface.insert_one(interface)
+            _result = await self._db.interface.insert_many(interfaces)
         except Exception as e:
             _log.error(e.args)
         else:
-            _log.debug('Insert ObjetId %s', _result.inserted_id)
+            _log.debug('Insert interfaces %s', str(_result.inserted_ids))
 
     async def get_interfaces(self, query: Dict={}, fields: Dict={}) -> List[Dict]:
         """
@@ -52,10 +53,46 @@ class Network:
 
         if not isinstance(_response, list):
             return []
-        
+
         for i, r in enumerate(_response):
             _response[i]['_id'] = str(r['_id'])
-        
+
+        return _response
+
+    async def set_connections(self, connections: List[Dict]) -> None:
+        """
+        Seta uma conexão.
+        """
+        if not isinstance(connections, (list, tuple)):
+            _log.error('Invalid connection content.')
+            return
+
+        try:
+            _response = await self._db.connection.insert_many(connections)
+        except DuplicateKeyError:
+            _log.warning('Duplicated connections: %s', str(connections))
+        except Exception as e:
+            _log.error(e.args)
+        else:
+            _log.debug('Insert connection %s', _response.inserted_ids)
+
+    async def get_connections(self, query: Dict={}, fields: Dict={}) -> List[Dict]:
+        """
+        Recupera as conexões salvas no banco.
+        """
+        if query and not isinstance(query, dict):
+            _log.error('Invalid query content.')
+            return
+
+        _response = await self._db.connection.find(query, fields)\
+            .to_list(CONF.db_response_limit)
+
+        if not isinstance(_response, list):
+            return []
+
+        for i, r in enumerate(_response):
+            _response[i]['_id'] = str(r['_id'])
+
         return _response
 
     @staticmethod
@@ -82,5 +119,20 @@ class Network:
                 'expireAfterSeconds': CONF.db_expire_time
             })
             _log.info(_m.format(collection='process'))
+        except Exception as e:
+            _log.error(e.args)
+
+        try:
+            _db.connection.create_indexes([
+                IndexModel([
+                    ('expireAfterSeconds', CONF.db_expire_time)
+                ]),
+                IndexModel([
+                    ('local_host', ASCENDING),
+                    ('remote_host', DESCENDING),
+                    ('pid', DESCENDING)
+                ], unique=True)
+            ])
+            _log.info(_m.format(collection='connection'))
         except Exception as e:
             _log.error(e.args)
