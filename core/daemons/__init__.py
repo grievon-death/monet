@@ -21,11 +21,6 @@ class Network:
     def __init__(self) -> None:
         self._units = ['', 'K', 'M', 'G', 'T', 'P']
         self._io = psutil.net_io_counters(pernic=True)
-        self._macs = { f.mac for f in sp.ifaces.values() }
-        self._pid_conn = {}  # Conexão
-        self._pid2trfc = defaultdict(lambda: [0, 0])  # Trafego
-        self._df = None  # Dataframe global
-        self._is_running = True
         self._model = NetworkModel()
 
     def __get_size(self, _bytes: bytes, _size: int=1024) -> Dict:
@@ -37,37 +32,52 @@ class Network:
                 return f"{_bytes:.2f}{unit}B"
             _bytes /= _size
 
-    def __process_packet(self, packet: Any) -> None:
+    async def __interfaces(self) -> None:
         """
-        Processa o pacote da rede, diferenciando entrada e saída.
+        Processa o status de rede das interfaces disponíveis.
         """
-        try:
-            _pk_connection = (packet.sport, packet.dport)
-        except (AttributeError, IndexError):
-            # As vezes o pacote não tem layers TCP/UDP, então ignora-se.
-            return
+        _interfaces = []
+        
+        while True:
+            io = psutil.net_io_counters(pernic=True)
 
-        _pk_pid = self._pid2trfc.get(_pk_connection)
+            for _if, _if_io in self._io.items():
+                uspeed, dspeed = io[_if].bytes_sent - _if_io.bytes_sent, io[_if].bytes_recv - _if_io.bytes_recv
+                _interfaces.append({
+                    'interface': _if,
+                    'download': io[_if].bytes_recv,
+                    'updaload': io[_if].bytes_sent,
+                    'upload_speed': (uspeed / CONF.refresh_time),
+                    'download_speed': (dspeed / CONF.refresh_time),
+                    'timestamp': datetime.now().timestamp()
+                })
 
-        if _pk_pid:
-            if packet.src in self._macs:
-                # Se tem meu serial é um pacote de saída.
-                self._pid2trfc[_pk_pid][0] + len(packet)
-            else:
-                # Senão pacotes de entrada.
-                self._pid2trfc[_pk_pid][1] += len(packet)
+            await self._model.set_interfaces(_interfaces)
+            self._io = io
+            time.sleep(CONF.refresh_time)
+            _interfaces.clear()
 
-    def __get__connections(self) -> None:
+    async def __get__connections(self) -> None:
         """
         Pega as conexões.
         """
-        while self._is_running:
+        _connections = []
+
+        while True:
             for _c in psutil.net_connections():
                 if _c.laddr and _c.raddr and _c.pid:
                     # Se endereço local e endereço remoto e tem PID
                     # add no dicionário de conexões.
-                    self._pid_conn[(_c.laddr.port, _c.raddr.port)] = _c.pid
-                    self._pid_conn[(_c.raddr.port, _c.laddr.port)] = _c.pid
+                    _connections.append({
+                        'local_host': f'{_c.laddr.ip}:{_c.laddr.port})',
+                        'remote_host': f'{_c.raddr.ip}:{_c.raddr.port}',
+                        'pid': _c.pid,
+                        'status': _c.status,
+                    })
+
+            await self._model.set_connections(_connections)
+            time.sleep(CONF.refresh_time)
+            _connections.clear()
 
     def __print_pid2trafic(self) -> None:
         """
@@ -131,39 +141,64 @@ class Network:
         print(_printing_df.to_string())
         self._df = _dataset
 
-    def __print_stats(self) -> None:
+    def __process_packet__(self, packet: Any) -> Any:
         """
-        Para permanecer printando os status.
+        Processa o pacote da rede, diferenciando entrada e saída.
         """
-        while self._is_running:
-            self.__print_pid2trafic()
-            time.sleep(CONF.refresh_time)
+        _down = 0
+        _uplo = 0
 
-    async def __interfaces(self) -> None:
-        """
-        Processa o status de rede das interfaces disponíveis.
-        """
-        io = psutil.net_io_counters(pernic=True)
+        try:
+            _pk_connection = (packet.sport, packet.dport)
+        except (AttributeError, IndexError):
+            # As vezes o pacote não tem layers TCP/UDP, então ignora-se.
+            return
 
-        for _if, _if_io in self._io.items():
-            uspeed, dspeed = io[_if].bytes_sent - _if_io.bytes_sent, io[_if].bytes_recv - _if_io.bytes_recv
-            _data = {
-                'interface': _if,
-                'download': self.__get_size(io[_if].bytes_recv),
-                'updaload': self.__get_size(io[_if].bytes_sent),
-                'upload_speed': f'{self.__get_size(uspeed / CONF.refresh_time)}/s',
-                'download_speed': f'{self.__get_size(dspeed / CONF.refresh_time)}/s',
-                'timestamp': int(datetime.now().timestamp())
-            }
-            await self._model.set_interfaces(_data)
+        _pk_pid = self._pid2trfc.get(_pk_connection)
 
-        self._io = io
-        time.sleep(CONF.refresh_time)
+        if _pk_pid:
+            if packet.src in self._macs:
+                # Se tem meu serial é um pacote de saída.
+                self._pid2trfc[_pk_pid][0] + len(packet)
+            else:
+                # Senão pacotes de entrada.
+                self._pid2trfc[_pk_pid][1] += len(packet)
 
     async def processes(self) -> None:
         """
-        Mostra o status de rede dos processos em execução.
+        Captura o uso de rede por processo.
         """
+        _processes = []
+
+        for _pid, _trfc in self._pid2trfc.items():
+            # `_pid` ID do processo
+            # `_trfc` lista com os valores de Download e Upload
+            try:
+                _proc = psutil.Process(_pid)
+            except psutil.NoSuchProcess:
+                continue
+
+            try:
+                _create_time = datetime.fromtimestamp(_proc.create_time())
+            except OSError:
+                # Processos do sistema usam o a data de boot
+                _create_time = datetime.fromtimestamp(psutil.boot_time())
+
+            _process = {
+                'Pid': _pid,
+                'Name': _proc.name(),
+                'Create time': _create_time,
+                'Upload': _trfc[0],
+                'Download': _trfc[1], 
+            }
+            _processes.append(_process)
+
+        self._pid2trfc = defaultdict(lambda: [0, 0])  # Trafego
+        _macs = { f.mac for f in sp.ifaces.values() }
+        _pid_conn = {}  # Conexão
+        _df = None  # Dataframe global
+        _is_running = True
+
         _threads = [
             Thread(target=self.__print_stats),
             Thread(target=self.__get__connections),
@@ -182,5 +217,13 @@ class Network:
         """
         Executa os daemons de Network.
         """
-        while True:
-            await self.__interfaces()
+        _threads = [
+            Thread(target=asyncio.run, args=(await self.__interfaces(), )),
+            Thread(target=asyncio.run, args=(await self.__get__connections(), ))
+        ]
+
+        for t in _threads:
+            t.start()
+
+        for t in _threads:
+            t.join()
