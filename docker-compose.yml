@@ -1,0 +1,42 @@
+version: '3'
+
+volumes:
+  mongo.vol:
+
+networks:
+  monet:
+
+services:
+  monet.mongo:
+    image: mongo:latest
+    container_name: monet.mongo
+    networks:
+      - monet
+    volumes:
+      - mongo.vol:/var/data/mongo
+    ports:
+      - 27017
+
+  monet.daemons:
+    build:
+      context: "."
+    image: monet:devel
+    container_name: monet.daemons
+    networks:
+      - monet
+    depends_on:
+      - monet.mongo
+    command: make daemons
+
+  monet.rest:
+    build:
+      context: "."
+    image: monet:devel
+    container_name: monet.rest
+    networks:
+      - monet
+    depends_on:
+      - monet.mongo
+    ports:
+      - 5005:5005
+    command: make rest

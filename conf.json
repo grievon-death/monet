@@ -1,7 +1,7 @@
 {
     "refreshTime": 1,
     "logLevel": "debug",
-    "mongoHost": "mongodb://127.0.0.1",
+    "mongoHost": "mongodb://monet.mongo",
     "mongoPort": 27017,
     "mongoName": "monet",
     "mongoExpireDataSeconds": 3600,
