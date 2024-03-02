@@ -35,3 +35,15 @@ class Connections(RequestHandler):
         self.finish({
             'data': _connections
         })
+
+class Packages(RequestHandler):
+    """
+    Handler da rota de pacotes.
+    """
+    _model = NetworkModel()
+
+    async def get(self) -> Dict:
+        _packages = await self._model.get_packages()
+        self.finish({
+            'data': _packages
+        })

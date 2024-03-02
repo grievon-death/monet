@@ -7,10 +7,11 @@ from settings.config import CONF
 
 
 class App(Application):
-    def __init__(self) -> None:
+    def __init__(self, port: int) -> None:
         handlers = [
             (r'/api/interfaces/', handler.Interfaces),
             (r'/api/connections/', handler.Connections),
+            (r'/api/packages/', handler.Packages),
         ]
         settings = dict(
             cookie_secret=CONF.secret_key,
@@ -18,5 +19,5 @@ class App(Application):
         )
         self.loop = IOLoop.current()
         http_server = HTTPServer(self)
-        http_server.listen(port=5005)
+        http_server.listen(port=port)
         super().__init__(handlers, **settings)

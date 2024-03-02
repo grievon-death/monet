@@ -23,16 +23,16 @@ class Network:
         """
         Insere a lista de interfaces no banco de dados.
         """
-        if not isinstance(interfaces, (list, tuple)):
-            _log.error('Invalid interface content.')
+        if not isinstance(interfaces, (list, tuple)) or not interfaces:
+            _log.debug('Invalid interface content.')
             return
 
         try:
             _result = await self._db.interface.insert_many(interfaces)
         except Exception as e:
-            _log.error(e.args)
+            _log.debug(e.args)
         else:
-            _log.debug('Insert interfaces %s', str(_result.inserted_ids))
+            _log.info('Insert interfaces %s', str(_result.inserted_ids))
 
     async def get_interfaces(self, query: Dict={}, fields: Dict={}) -> List[Dict]:
         """
@@ -63,8 +63,8 @@ class Network:
         """
         Seta uma conexão.
         """
-        if not isinstance(connections, (list, tuple)):
-            _log.error('Invalid connection content.')
+        if not isinstance(connections, (list, tuple)) or not connections:
+            _log.debug('Invalid connection content.')
             return
 
         try:
@@ -72,9 +72,9 @@ class Network:
         except DuplicateKeyError:
             _log.debug('Duplicated connections: %s', str(connections))
         except Exception as e:
-            _log.error(e.args)
+            _log.debug(e.args)
         else:
-            _log.debug('Insert connection %s', _response.inserted_ids)
+            _log.info('Insert connection %s', _response.inserted_ids)
 
     async def get_processes(self, query: Dict={}, fields: Dict={}) -> List[Dict]:
         """
@@ -85,6 +85,40 @@ class Network:
             return
 
         _response = await self._db.process.find(query, fields)\
+            .to_list(CONF.db_response_limit)
+
+        if not isinstance(_response, list):
+            return []
+
+        for i, r in enumerate(_response):
+            _response[i]['_id'] = str(r['_id'])
+
+        return _response
+
+    async def set_package(self, package: Dict) -> None:
+        """
+        Seta os pacotes encontrados no banco de dados.
+        """
+        if not isinstance(package, dict) or not package:
+            _log.debug('Invalid package content.\nContent: %s' % str(package))
+            return
+
+        try:
+            _response = await self._db.package.insert_one(package)
+        except Exception as e:
+            _log.error(e.args)
+        else:
+            _log.info('Insert package %s', _response.inserted_ids)
+
+    async def get_packages(self, query: Dict={}, fields: Dict={}) -> List[Dict]:
+        """
+        Recupera as conexões salvas no banco.
+        """
+        if query and not isinstance(query, dict):
+            _log.error('Invalid query content.')
+            return
+
+        _response = await self._db.package.find(query, fields)\
             .to_list(CONF.db_response_limit)
 
         if not isinstance(_response, list):
@@ -126,5 +160,13 @@ class Network:
                 ], unique=True)
             ])
             _log.info(_m.format(collection='process'))
+        except Exception as e:
+            _log.error(e.args)
+
+        try:
+            _db.package.create_index({
+                'expireAfterSeconds': CONF.db_expire_time
+            })
+            _log.info(_m.format(collection='package'))
         except Exception as e:
             _log.error(e.args)

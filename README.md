@@ -78,6 +78,8 @@ Ou no modo daemon:
 $ docker compose up -d
 ```
 
+---
+
 ### API REST
 
 A API REST estará disponível na porta 5005 da sua máquina.
@@ -89,6 +91,7 @@ A API REST estará disponível na porta 5005 da sua máquina.
 | /api/interfaces/ | Interfaces de rede disponível e dados de conexão em bytes | GET |
 | /api/connections/ | Conexões que estão em uso na máquina e seu PID | GET |
 
+---
 
 ### Pegue leve.
 

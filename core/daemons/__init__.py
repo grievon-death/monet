@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Any, Dict
 
 import psutil
-import pandas as pd
 import scapy.all as sp
 
 from core.models.network import Network as NetworkModel
@@ -22,15 +21,6 @@ class Network:
         self._io = psutil.net_io_counters(pernic=True)
         self._model = NetworkModel()
         self._pid2trfc = defaultdict(lambda: [0, 0])
-
-    def __get_size(self, _bytes: bytes, _size: int=1024) -> Dict:
-        """
-        Retorna o tamanho dos bytes num formato legal.
-        """
-        for unit in self._units:
-            if _bytes < _size:
-                return f"{_bytes:.2f}{unit}B"
-            _bytes /= _size
 
     async def __interfaces(self) -> None:
         """
@@ -79,19 +69,11 @@ class Network:
             time.sleep(CONF.refresh_time)
             _connections.clear()
 
-    def __pkg_process(self, packge: Any) -> None:
-        _log.debug("Opa")
-        return 
-
-    async def __processes(self) -> None:
+    def __pkg_process(self, package: Any) -> None:
         """
+        Insere os pacotes da máquina em uma collection.
         """
-        try:
-            sp.sniff(prn=self.__pkg_process, store=False)
-        except PermissionError:
-            _log.warning('Operation not permited!')
-        except Exception as e:
-            _log.error(e.args)
+        asyncio.run(self._model.set_package(package.__dict__))
 
     # As funções a baixo são necessárias para rodar os daemons em processos separados.
     # O multiprocessing do python não aceita funções assíncronas.
@@ -103,4 +85,14 @@ class Network:
         asyncio.run(self.__connections())
 
     def processes(self) -> None:
-        asyncio.run(self.__processes())
+        """
+        Salva os dados dos processos do sistema.
+        """
+        try:
+            _sn = sp.AsyncSniffer(prn=self.__pkg_process, store=False)
+            _sn.start()
+            _sn.join()
+        except PermissionError:
+            _log.warning('Operation not permited!')
+        except Exception as e:
+            _log.error(e.args)

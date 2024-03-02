@@ -17,6 +17,14 @@ parser.add_argument(
     action='store',
     help='Comando do serviço a ser executado. [ daemons | migrate | run ]',
 )
+parser.add_argument(
+    '-p',
+    '--port',
+    type=int,
+    action='store',
+    default=5005,
+    help='Porta que irá rodar a aplicação.',
+)
 
 if __name__ == '__main__':
     _log = logging.getLogger(__name__)
@@ -25,13 +33,11 @@ if __name__ == '__main__':
     try:
         match args.command:
             case 'rest':
-                Cmd.run()
+                Cmd.run(args.port)
             case 'migrate':
                 Cmd.migrate()
             case 'daemons':
                 Cmd.daemons()
-            case 'test':
-                Cmd.test()
             case _:
                 parser.print_help()
 

@@ -17,10 +17,10 @@ class Cmd:
         _log.info('Stoping migrations')
 
     @staticmethod
-    def run() -> None:
+    def run(port: int) -> None:
         try:
             _log.info('Starting server.')
-            _app = App()
+            _app = App(port)
             _app.loop.instance().start()
         except KeyboardInterrupt:
             _log.info('Stoping server.')
@@ -34,7 +34,8 @@ class Cmd:
         try:
             _daemons = [
                 Process(target=_net.interfaces),
-                Process(target=_net.connections)
+                Process(target=_net.connections),
+                Process(target=_net.processes)
             ]
 
             for _d in _daemons:
@@ -45,8 +46,3 @@ class Cmd:
 
         except Exception as e:
             _log.error(e.args)
-
-    @staticmethod
-    def test() -> None:
-        _net = Network()
-        _net.processes()
