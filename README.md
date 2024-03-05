@@ -90,6 +90,10 @@ A API REST estará disponível na porta 5005 da sua máquina.
 | ---- | -------- | --------- |
 | /api/interfaces/ | Interfaces de rede disponível e dados de conexão em bytes | GET |
 | /api/connections/ | Conexões que estão em uso na máquina e seu PID | GET |
+| /api/login/ | Realiza o login e retorna um token de acesso, usuário e senha padrão é `admin` | POST |
+
+
+A API espera o token gerado no login no cabeçalho `Authorization` da requisição!
 
 ---
 
