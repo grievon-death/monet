@@ -117,6 +117,9 @@ class Network:
         if query and not isinstance(query, dict):
             _log.error('Invalid query content.')
             return
+        elif fields and not isinstance(fields, dict):
+            _log.debug('Invalid filter content.')
+            return
 
         _response = await self._db.package.find(query, fields)\
             .to_list(CONF.db_response_limit)

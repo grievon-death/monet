@@ -1,14 +1,16 @@
-import logging
-from typing import Any, Dict
+import json
+from typing import Dict
 
-from tornado.web import RequestHandler
-
+from core.models.auth import Auth as AuthModel
 from core.models.network import Network as NetworkModel
+from core.utils import AuthHash, Tools, BaseHandler
 
-_log = logging.getLogger(__name__)
 
 
-class Interfaces(RequestHandler):
+###########
+# NETWORK #
+###########
+class Interfaces(BaseHandler):
     """
     Handler da rota de interfaces.
     """
@@ -18,32 +20,163 @@ class Interfaces(RequestHandler):
         """
         Função para a requisição GET.
         """
-        _ifaces = await self._model.get_interfaces()
-        self.finish({
-            'data': _ifaces
-        })
+        if not self.is_a_valid_login():
+            return
+
+        try:
+            _ifaces = await self._model.get_interfaces()
+            self.set_status(200)
+            self.finish({
+                'data': _ifaces
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.finish({
+                'error': e.args
+            })
 
 
-class Connections(RequestHandler):
+class Connections(BaseHandler):
     """
     Handler da rota de conexões.
     """
     _model = NetworkModel()
 
     async def get(self) -> Dict:
-        _connections = await self._model.get_processes()
-        self.finish({
-            'data': _connections
-        })
+        if not self.is_a_valid_login():
+            return
 
-class Packages(RequestHandler):
+        try:
+            _connections = await self._model.get_processes()
+            self.set_status(200)
+            self.finish({
+                'data': _connections
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.finish({
+                'error': e.args
+            })
+
+
+class Packages(BaseHandler):
     """
     Handler da rota de pacotes.
     """
     _model = NetworkModel()
 
     async def get(self) -> Dict:
-        _packages = await self._model.get_packages()
+        if not self.is_a_valid_login():
+            return
+
+        try:
+            _packages = await self._model.get_packages()
+            self.set_status(200)
+            self.finish({
+                'data': _packages
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.finish({
+                'error': e.args
+            })
+
+
+###########
+# Usuário #
+###########
+class User(BaseHandler):
+    """
+    Handler para a rota de usuários.
+    """
+    _model = AuthModel()
+
+    async def get(self) -> Dict:
+        if not self.is_a_valid_login():
+            return
+
+        try:
+            _users = await self._model.get_user()
+            self.set_status(200)
+            self.finish({
+                'data': _users
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.finish({
+                'error': e.args
+            })
+
+
+#########
+# Login #
+#########
+class Login(BaseHandler):
+    """
+    Handler para a rota de login
+    """
+    _notfound_msg = 'Incorrect user or password!'
+    _invalidpld_msg = 'Invalid payload'
+    _model = AuthModel()
+
+    async def post(self) -> Dict:
+        """
+        Realiza a ação de login.
+        """
+        _requireds = ['username', 'password']
+
+        try:
+            _body = json.loads(self.request.body)
+        except json.decoder.JSONDecodeError:
+            self.set_status(400)
+            self.finish({
+                'error': self._invalidpld_msg,
+            })
+            return
+
+        if not Tools.have_required_fields(_requireds, _body):
+            self.set_status(400)
+            self.finish({
+                'error': self._invalidpld_msg,
+            })
+            return
+
+        _usernmame: str=_body['username']
+        _password: str=_body['password']
+
+        try:
+            _user = await self._model.get_user({
+                'username': _usernmame,
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.finish({
+                'error': e.args
+            })
+            return
+
+        if not _user or len(_user) != 1:
+            self.set_status(400)
+            self.finish({
+                'error': self._notfound_msg
+            })
+            return
+
+        _user = _user[0]
+
+        if not AuthHash.passoword_check(_password, _user['password']):
+            self.set_status(400)
+            self.finish({
+                'error': self._notfound_msg
+            })
+            return
+
+        _token = AuthHash.jtw_generate(_user.copy())  # Manda uma cópia para não alterar o usuário no.
+        _user['token'] = _token
+        _user.pop('_id')   
+        await self._model.change_user(_user)
+
+        self.set_status(200)
         self.finish({
-            'data': _packages
+            'token': _token
         })

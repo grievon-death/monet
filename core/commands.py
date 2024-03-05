@@ -1,8 +1,8 @@
-import asyncio
 import logging
 from multiprocessing import Process
 
 from core.app import App
+from core.models.auth import Auth as AuthModel
 from core.models.network import Network as NetworkModel
 from core.daemons import Network
 
@@ -14,6 +14,7 @@ class Cmd:
     def migrate() -> None:
         _log.info('Starting migrations')
         NetworkModel.migrate()
+        AuthModel.migrate()
         _log.info('Stoping migrations')
 
     @staticmethod

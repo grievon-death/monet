@@ -20,7 +20,6 @@ class Network:
         self._units = ['', 'K', 'M', 'G', 'T', 'P']
         self._io = psutil.net_io_counters(pernic=True)
         self._model = NetworkModel()
-        self._pid2trfc = defaultdict(lambda: [0, 0])
 
     async def __interfaces(self) -> None:
         """

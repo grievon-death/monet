@@ -15,3 +15,4 @@ spinners==0.0.24
 termcolor==2.4.0
 tornado==6.4
 tzdata==2024.1
+pyjwt==2.8.0
