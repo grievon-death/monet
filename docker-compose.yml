@@ -16,6 +16,8 @@ services:
       - mongo.vol:/var/data/mongo
 
   monet.daemons:
+    build:
+      context: "."
     image: monet:devel
     container_name: monet.daemons
     networks:
@@ -31,6 +33,7 @@ services:
       - monet
     depends_on:
       - monet.mongo
+      - monet.daemons
     ports:
       - 5005:5005
     command: make rest

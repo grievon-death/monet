@@ -60,13 +60,7 @@ $ python3 monet.py rest
 
 #### Docker & Docker compose
 
-Primeiramente precisamos fazer a construção da imagem e sua tag com o comando:
-
-```bash
-$ docker build -t monet:devel .
-```
-
-Depois que a construção da imagem terminar podemos subir os containeres com o comando:
+Para erguer as imagens no container Docker basta usar o comando a seguir, o comando irá montar a imagem e executar os daemons e API, já com um banco de dados:
 
 ```bash
 $ docker compose up
