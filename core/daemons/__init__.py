@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import time
-from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict
 
@@ -72,7 +71,14 @@ class Network:
         """
         Insere os pacotes da máquina em uma collection.
         """
-        asyncio.run(self._model.set_package(package.__dict__))
+        _pkg = {
+            'interface': package.name,
+            'source': package.src,
+            'destiny': package.dst,
+            'pkg_len': len(package),
+            'timestamp': package.time,
+        }
+        self._model.set_package(_pkg)
 
     # As funções a baixo são necessárias para rodar os daemons em processos separados.
     # O multiprocessing do python não aceita funções assíncronas.
@@ -88,9 +94,7 @@ class Network:
         Salva os dados dos processos do sistema.
         """
         try:
-            _sn = sp.AsyncSniffer(prn=self.__pkg_process, store=False)
-            _sn.start()
-            _sn.join()
+            sp.sniff(prn=self.__pkg_process, store=False)
         except PermissionError:
             _log.warning('Operation not permited!')
         except Exception as e:

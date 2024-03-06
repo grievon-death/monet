@@ -32,6 +32,7 @@ class Cmd:
     @staticmethod
     def daemons() -> None:
         _net = Network()
+        
         try:
             _daemons = [
                 Process(target=_net.interfaces),

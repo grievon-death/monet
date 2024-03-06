@@ -95,7 +95,7 @@ class Network:
 
         return _response
 
-    async def set_package(self, package: Dict) -> None:
+    def set_package(self, package: Dict) -> None:
         """
         Seta os pacotes encontrados no banco de dados.
         """
@@ -104,11 +104,15 @@ class Network:
             return
 
         try:
-            _response = await self._db.package.insert_one(package)
+            _db = MongoClient(
+                host=CONF.db_host,
+                port=CONF.db_port
+            )[CONF.db_name]
+            _response = _db.package.insert_one(package)
         except Exception as e:
             _log.error(e.args)
         else:
-            _log.info('Insert package %s', _response.inserted_ids)
+            _log.info('Insert package %s', _response.inserted_id)
 
     async def get_packages(self, query: Dict={}, fields: Dict={}) -> List[Dict]:
         """
