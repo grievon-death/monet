@@ -15,13 +15,13 @@ Primeiramente, será necessário realizar alterações, de acordo com o seu ambi
 ```json
 {
     "refreshTime": 1,  // Tempo em que os daemons capturam as informações da rede.
-    "logLevel": "debug",  // Nível de log do programa.
+    "logLevel": "error",  // Nível de log do programa.
     "mongoHost": "mongodb://monet.mongo",  // Hostname do banco de dados. Apontando para o container do docker-compose.yml
     "mongoPort": 27017,  // Porta do banco de dados.
     "mongoName": "monet",  // Nome do banco de dados.
     "mongoExpireDataSeconds": 3600,  // Tempo de expiração dos dados no banco.
     "mongoResponseLimit": 100,  // A aplicação usa motor, então é necessário limitar o tamanho da resposta.
-    "debug": true,  //  API REST em modo de debug?
+    "debug": false,  //  API REST em modo de debug?
     "appSecretKey": "serw#%@rqdÀWRPA`SDosd123@!13qweqsd-as=-%¨&ÏYJ"  // Senha para os cookies da API REST, recomento trocar por uma senha forte.
 }
 ```
@@ -88,15 +88,10 @@ A API REST estará disponível na porta 5005 da sua máquina.
 
 | Rota | Conteúdo | Permitido |
 | ---- | -------- | --------- |
+| /api/login/ | Realiza o login e retorna um token de acesso. Usuário e senha padrão é `admin` | POST |
 | /api/interfaces/ | Interfaces de rede disponível e dados de conexão em bytes | GET |
 | /api/connections/ | Conexões que estão em uso na máquina e seu PID | GET |
-| /api/login/ | Realiza o login e retorna um token de acesso, usuário e senha padrão é `admin` | POST |
+| /api/packages/ | Pacotes trafegados pela máquina | GET |
 
 
-A API espera o token gerado no login no cabeçalho `Authorization` da requisição!
-
----
-
-### Pegue leve.
-
-O serviço ainda está em desenvolvimento, sempre que possível estarei realizando updates e upgrades. Grato pelo compreenção :grimacing:
+Coloque o token gerado no login no cabeçalho `Authorization` das requisições das demais rotas!
