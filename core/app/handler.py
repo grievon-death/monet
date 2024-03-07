@@ -3,7 +3,7 @@ from typing import Dict
 
 from core.models.auth import Auth as AuthModel
 from core.models.network import Network as NetworkModel
-from core.utils import AuthHash, Tools, BaseHandler
+from core.utils import AuthHash, BaseHandler
 
 
 
@@ -20,15 +20,14 @@ class Interfaces(BaseHandler):
         """
         Função para a requisição GET.
         """
-        if not self.is_a_valid_login():
+        if not await self.is_a_valid_login():
             return
 
         try:
             _ifaces = await self._model.get_interfaces()
+            _filters = self.get_filters()
             self.set_status(200)
-            self.finish({
-                'data': _ifaces
-            })
+            self.finish(self.data_filter(_ifaces, _filters))
         except Exception as e:
             self.set_status(500)
             self.finish({
@@ -48,10 +47,9 @@ class Connections(BaseHandler):
 
         try:
             _connections = await self._model.get_processes()
+            _filters = self.get_filters()
             self.set_status(200)
-            self.finish({
-                'data': _connections
-            })
+            self.finish(self.data_filter(_connections, _filters))
         except Exception as e:
             self.set_status(500)
             self.finish({
@@ -71,10 +69,9 @@ class Packages(BaseHandler):
 
         try:
             _packages = await self._model.get_packages()
+            _filters = self.get_filters()
             self.set_status(200)
-            self.finish({
-                'data': _packages
-            })
+            self.finish(self.data_filter(_packages, _filters))
         except Exception as e:
             self.set_status(500)
             self.finish({
@@ -134,7 +131,7 @@ class Login(BaseHandler):
             })
             return
 
-        if not Tools.have_required_fields(_requireds, _body):
+        if not self.have_required_fields(_requireds, _body):
             self.set_status(400)
             self.finish({
                 'error': self._invalidpld_msg,
@@ -171,10 +168,11 @@ class Login(BaseHandler):
             })
             return
 
-        _token = AuthHash.jtw_generate(_user.copy())  # Manda uma cópia para não alterar o usuário no.
-        _user['token'] = _token
-        _user.pop('_id')   
-        await self._model.change_user(_user)
+        _token = AuthHash.jtw_generate(_user.copy())
+        await self._model.set_token(
+            token=_token,
+            user_id=_user['_id']
+        )
 
         self.set_status(200)
         self.finish({

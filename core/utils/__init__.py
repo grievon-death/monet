@@ -1,10 +1,10 @@
-import json
 import logging
 from datetime import datetime, timedelta
 from hashlib import pbkdf2_hmac
 from typing import Any, Dict, List
 
 import jwt
+import pandas as pd
 from tornado.web import RequestHandler
 
 from core.models.auth import Auth as AuthModel
@@ -65,12 +65,8 @@ class AuthHash:
             raise e
 
 
-class Tools:
-    """
-    Ferramentas gerais.
-    """
-    @staticmethod
-    def have_required_fields(requireds: List[Any], body: Dict) -> bool:
+class BaseHandler(RequestHandler):
+    def have_required_fields(self, requireds: List[Any], body: Dict) -> bool:
         """
         Checa se tem todos os campos obrigatórios.
         """
@@ -80,9 +76,57 @@ class Tools:
             return False
         return True
 
+    def get_filters(self) -> Dict:
+        _filters = {}
 
-class BaseHandler(RequestHandler):
-    def __login_validation(self) -> Exception | None:
+        if self.request.query:
+            _ands = self.request.query.split('&')
+
+            for _and in _ands:
+                try:
+                    _k, _v = _and.split('=')
+                    _filters[_k] = _v
+                except Exception as e:
+                    self.finish({'error': 'Invalid filter!'})
+                    raise e
+
+        return _filters
+
+    def data_filter(self, data: List[Dict], filters: Dict={}) -> Dict:
+        """
+        Retorna um dicionário com o 
+        """
+        if not isinstance(filters, dict) or not isinstance(data, list):
+            self.set_status(status_code=400)
+            _log.debug('Invalid filter!')
+            return { 'error': 'Invalid filter!' }
+
+        _response = {}
+        _df = pd.DataFrame(data)
+        _keys = filters.keys()
+        _total = len(data)
+
+        if filters:
+            try:
+                for k in _keys:
+                    _df = _df.loc[_df[k] == filters[k]]
+            except KeyError:
+                _log.debug('Invalid filter!')
+                return { 'error': 'Invalid filter!' }
+            except Exception as e:
+                _log.error(e)
+                return { 'error': 'Invalid filter!' }
+
+            _response['data'] = _df.to_dict('records')
+        else:
+            _response['data'] = data
+    
+        _response['total'] = _total
+        _response['count'] = len(_df)
+
+        return _response
+
+    async def __login_validation(self) -> Exception | None:
         """
         Função que checa se o login é valido.
         """
@@ -113,7 +157,8 @@ class BaseHandler(RequestHandler):
             raise errors.InvalidToken('Invalid token!')
 
         try:
-            _user = AuthModel.find_one(username=_tkn['username'])
+            _model = AuthModel()
+            _user = await _model.find_one(username=_tkn['username'])
         except KeyError:
             _msg = 'Token required field not found.'
             _log.error(_msg)
@@ -124,7 +169,7 @@ class BaseHandler(RequestHandler):
             _log.error(_msg)
             raise errors.InvalidToken(_msg)
 
-        _u_tkn = _user.get('token')
+        _u_tkn = await _model.get_token(_user['_id'])
 
         _msg = 'Invalid token!'
 
@@ -135,12 +180,12 @@ class BaseHandler(RequestHandler):
             _log.error(_msg)
             raise errors.InvalidToken(_msg)
 
-    def is_a_valid_login(self) -> bool:
+    async def is_a_valid_login(self) -> bool:
         """
         Decorator de validação.
         """
         try:
-            self.__login_validation()
+            await self.__login_validation()
         except errors.InvalidToken as e:
             self.set_status(status_code=400)
             self.finish({
