@@ -73,14 +73,66 @@ class Auth:
         except Exception as e:
             _log.error(e.args)
 
-    @staticmethod
-    def find_one(username: str) -> Dict:
-        _db = MongoClient(
-            host=CONF.db_host,
-            port=CONF.db_port,
-        )[CONF.db_name]
+    async def get_token(self, user_id: str) -> str | None:
+        """
+        Recupera o token do banco de dados.
+        """
+        if not isinstance(user_id, str):
+            _log.debug('Invalid token!')
+            return
 
-        return _db.user.find_one({'username': username})
+        try:
+            _response = await self._db.token.find_one({
+                'user': user_id
+            })
+        except Exception as e:
+            _log.error(e.args)
+
+        try:
+            return _response['token']
+        except KeyError:
+            return
+
+    async def set_token(self, token: str, user_id: str) -> None:
+        """
+        Insere o token do banco de dados.
+        """
+        if not isinstance(token, str):
+            return
+
+        try:
+            _user = await self._db.token.find_one({'user': user_id})
+        except Exception as e:
+            _log.error(e.args)
+            return
+
+        if not _user:
+            try:
+                _response = await self._db.token.insert_one({
+                    'token': token,
+                    'user': user_id,
+                })
+                _log.debug('Inserted token: %s', _response.inserted_id)
+            except Exception as e:
+                _log.error(e.args)
+                return
+        else:
+            try:
+                _response = await self._db.token.update_one(
+                    { 'user': user_id },
+                    { '$set': { 'token': token }}
+                )
+                _log.debug('Inserted token: %s', _response.upserted_id)
+            except Exception as e:
+                _log.error(e.args)
+
+    async def find_one(self, username: str) -> Dict | None:
+        _response = await self._db.user.find_one({'username': username})
+
+        if _response:
+            _response['_id'] = str(_response['_id'])
+
+        return _response
 
     @staticmethod
     def migrate() -> None:
@@ -96,8 +148,7 @@ class Auth:
         try:
             _db.user.create_indexes([
                 IndexModel([
-                    ('username', ASCENDING),
-                    ('token', DESCENDING)
+                    ('username', ASCENDING)
                 ], unique=True)
             ])
             _log.info(_m.format(collection='auth'))
@@ -106,5 +157,16 @@ class Auth:
                 'username': 'admin',
                 'password': AuthHash.password_hash('admin'),
             })
+        except Exception as e:
+            _log.error(e.args)
+
+        try:
+            _db.user.create_indexes([
+                IndexModel([
+                    ('token', DESCENDING),
+                    ('user_id', DESCENDING),
+                ], unique=True)
+            ])
+            _log.info(_m.format(collection='token'))
         except Exception as e:
             _log.error(e.args)
