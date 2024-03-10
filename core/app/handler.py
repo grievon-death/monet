@@ -6,7 +6,6 @@ from core.models.network import Network as NetworkModel
 from core.utils import AuthHash, BaseHandler
 
 
-
 ###########
 # NETWORK #
 ###########
@@ -42,7 +41,7 @@ class Connections(BaseHandler):
     _model = NetworkModel()
 
     async def get(self) -> Dict:
-        if not self.is_a_valid_login():
+        if not await self.is_a_valid_login():
             return
 
         try:
@@ -64,7 +63,7 @@ class Packages(BaseHandler):
     _model = NetworkModel()
 
     async def get(self) -> Dict:
-        if not self.is_a_valid_login():
+        if not await self.is_a_valid_login():
             return
 
         try:
@@ -86,17 +85,149 @@ class User(BaseHandler):
     """
     Handler para a rota de usuários.
     """
+    _requireds = ['username', 'password']
+    _invalidpld_msg = 'Invalid payload'
     _model = AuthModel()
 
     async def get(self) -> Dict:
-        if not self.is_a_valid_login():
+        if not await self.is_a_valid_login():
             return
 
         try:
             _users = await self._model.get_user()
+            _filters = self.get_filters()
+            self.set_status(200)
+            self.finish(self.data_filter(_users, _filters))
+        except Exception as e:
+            self.set_status(500)
+            self.finish({
+                'error': e.args
+            })
+
+    async def post(self) -> Dict:
+        if not await self.is_a_valid_login():
+            return
+        elif not self.is_root_user():
+            self.set_status(406)
+            self.finish({
+                'error': 'Permission denied',
+            })
+            return
+
+        try:
+            _body = json.loads(self.request.body)
+        except json.decoder.JSONDecodeError:
+            self.set_status(400)
+            self.finish({
+                'error': self._invalidpld_msg,
+            })
+            return
+
+        if not self.have_required_fields(self._requireds, _body):
+            self.set_status(400)
+            self.finish({
+                'error': self._invalidpld_msg,
+            })
+            return
+
+        _body['password'] = AuthHash.password_hash(_body['password'])
+
+        try:
+            _response = await self._model.set_user(_body)
+            self.set_status(201)
+            self.finish({
+                'data': _response
+            })
+        except Exception as e:
+            self.set_status(500)
+            self.finish({
+                'error': e.args
+            })
+            return
+
+    async def put(self) -> Dict:
+        """
+        Muda um usuário
+        """
+        if not await self.is_a_valid_login():
+            return
+
+        try:
+            _body = json.loads(self.request.body)
+        except json.decoder.JSONDecodeError:
+            self.set_status(400)
+            self.finish({
+                'error': self._invalidpld_msg,
+            })
+            return
+
+        if not _body.get('username'):
+            self.set_status(400)
+            self.finish({
+                'error': self._invalidpld_msg,
+            })
+            return
+        elif not self.info.get('username') == _body['username']:
+            self.set_status(400)
+            self.finish({
+                'error': 'Permission denied',
+            })
+            return
+
+        if _body.get('password'):
+            _body['password'] = AuthHash.password_hash(_body['password'])
+        else:
+            _body['password'] = self.info['password']
+
+        try:
+            await self._model.change_user(_body)
+            self.set_status(200)
+        except Exception as e:
+            self.set_status(400)
+            self.finish({
+                'error': e.args,
+            })
+
+    async def delete(self) -> bool:
+        """
+        Deleta um usuário.
+        """
+        if not await self.is_a_valid_login():
+            return
+        elif not self.is_root_user():
+            self.set_status(406)
+            self.finish({
+                'error': 'Permission denied',
+            })
+            return
+
+        try:
+            _body = json.loads(self.request.body)
+        except json.decoder.JSONDecodeError:
+            self.set_status(400)
+            self.finish({
+                'error': self._invalidpld_msg,
+            })
+            return
+
+        if not _body.get('username'):
+            self.set_status(400)
+            self.finish({
+                'error': self._invalidpld_msg,
+            })
+            return
+        elif _body['username'] == 'admin':
+            self.set_status(400)
+            self.finish({
+                'error': self._invalidpld_msg,
+            })
+            return
+
+        try:
+            _response = await self._model.remove_one(_body['username'])
             self.set_status(200)
             self.finish({
-                'data': _users
+                'data':  _response
             })
         except Exception as e:
             self.set_status(500)
@@ -114,13 +245,13 @@ class Login(BaseHandler):
     """
     _notfound_msg = 'Incorrect user or password!'
     _invalidpld_msg = 'Invalid payload'
+    _requireds = ['username', 'password']
     _model = AuthModel()
 
     async def post(self) -> Dict:
         """
         Realiza a ação de login.
         """
-        _requireds = ['username', 'password']
 
         try:
             _body = json.loads(self.request.body)
@@ -131,7 +262,7 @@ class Login(BaseHandler):
             })
             return
 
-        if not self.have_required_fields(_requireds, _body):
+        if not self.have_required_fields(self._requireds, _body):
             self.set_status(400)
             self.finish({
                 'error': self._invalidpld_msg,

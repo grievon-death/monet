@@ -12,6 +12,7 @@ class App(Application):
             (r'/api/interfaces/', handler.Interfaces),
             (r'/api/connections/', handler.Connections),
             (r'/api/packages/', handler.Packages),
+            (r'/api/users/', handler.User),
             (r'/api/login/', handler.Login),
         ]
         settings = dict(

@@ -17,7 +17,7 @@ class Auth:
             port=CONF.db_port,
         )[CONF.db_name]
 
-    async def set_user(self, user: Dict) -> None:
+    async def set_user(self, user: Dict) -> str | None:
         """
         Seta um novo usuário no banco de dados.
         """
@@ -27,12 +27,15 @@ class Auth:
 
         try:
             _response = await self._db.user.insert_one(user)
-        except DuplicateKeyError:
+        except DuplicateKeyError as e:
             _log.warning('The user %s already exists in the system', user['username'])
+            raise e
         except Exception as e:
             _log.error(e.args)
+            raise e
         else:
             _log.info('Created user %s', _response.inserted_id)
+            return str(_response.inserted_id)
 
     async def get_user(self, query: Dict={}, fields: Dict={}) -> List[Dict]:
         """
@@ -56,7 +59,7 @@ class Auth:
 
         return _response
 
-    async def change_user(self, user: Dict) -> None:
+    async def change_user(self, user: Dict) -> str | None:
         """
         Muda um usuário no banco de dados.
         """
@@ -134,6 +137,20 @@ class Auth:
 
         return _response
 
+    async def remove_one(self, username: str) -> int | None:
+        """
+        Remove um usuário.
+        """
+        try:
+            _response = await self._db.user.delete_one({
+                'username': username
+            })
+            _log.debug('User %s removed. (%s)' % (username, _response.deleted_count))
+            return _response.deleted_count
+        except Exception as e:
+            _log.error(e.args)
+            raise e
+
     @staticmethod
     def migrate() -> None:
         """
@@ -161,7 +178,7 @@ class Auth:
             _log.error(e.args)
 
         try:
-            _db.user.create_indexes([
+            _db.token.create_indexes([
                 IndexModel([
                     ('token', DESCENDING),
                     ('user_id', DESCENDING),

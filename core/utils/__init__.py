@@ -66,6 +66,26 @@ class AuthHash:
 
 
 class BaseHandler(RequestHandler):
+    info: dict = {}
+
+    def is_root_user(self) -> bool:
+        """
+        Varifica se é o usuário root.
+        """
+        try:
+            _headers = self.request.headers._dict
+            token = _headers['Authorization']
+            _token = AuthHash.jwt_recover(token)
+
+            if not _token['username'] == 'admin':
+                return False
+
+        except Exception as e:
+            _log.error(e.args)
+            return False
+
+        return True
+
     def have_required_fields(self, requireds: List[Any], body: Dict) -> bool:
         """
         Checa se tem todos os campos obrigatórios.
@@ -179,6 +199,8 @@ class BaseHandler(RequestHandler):
         elif not _u_tkn ==  _token:
             _log.error(_msg)
             raise errors.InvalidToken(_msg)
+
+        self.info = _tkn
 
     async def is_a_valid_login(self) -> bool:
         """
